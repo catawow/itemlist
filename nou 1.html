@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Craft Planner – Resource/Create & NPC</title>
+<meta name="color-scheme" content="dark light">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
+<style>
+:root {
+  --bg:#0b0f14; --panel:#121821; --muted:#9fb0c0; --text:#e6eef7;
+  --accent:#60a5fa; --ok:#22c55e; --warn:#f59e0b; --bad:#f87171;
+  --focus: 0 0 0 3px rgba(96,165,250,.55);
+}
+html,body{height:100%}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#0b0f14 0%,#111827 100%);color:var(--text)}
+header{display:flex;flex-direction:column;gap:8px;padding:16px 20px;position:sticky;top:0;background:rgba(11,15,20,.8);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.06);z-index:10}
+header .topbar{display:flex;align-items:center;gap:12px}
+header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.3px}
+.badge{padding:4px 8px;border:1px solid rgba(255,255,255,.1);border-radius:999px;font-size:12px;color:var(--muted)}
+#searchGlobal{background:#0c1220;color:var(--text);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 12px;font-size:14px;width:100%;max-width:420px}
+#searchGlobal:focus{box-shadow:var(--focus)}
+.countBadge{margin-left:6px;padding:2px 6px;background:rgba(255,255,255,.1);border-radius:999px;font-size:12px;cursor:pointer}
+.btn.small{font-size:12px;padding:8px 10px}
+main{display:grid;grid-template-columns:380px 1fr;gap:16px;padding:16px}
+.card{background:var(--panel);border:1px solid rgba(255,255,255,.06);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.section{padding:16px}
+.tabs{display:flex;gap:8px;margin-bottom:8px}
+.tab{padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:#0c1220;cursor:pointer}
+.tab.active{background:var(--accent);color:#00132a;font-weight:700;border-color:transparent}
+select,input,button{background:#0c1220;color:#e6eef7;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 12px;font-size:14px;outline:none}
+input:focus,select:focus,button:focus{box-shadow:var(--focus)}
+button{cursor:pointer}
+button.primary{background:var(--accent);border:none;color:#00132a;font-weight:700}
+.row{display:flex;gap:10px;align-items:center}
+.col{display:flex;flex-direction:column;gap:10px}
+.title{font-size:12px;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:8px;max-height:40vh;overflow:auto;scroll-margin-top:90px}
+.item{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid rgba(255,255,255,.06);background:#0e1526;border-radius:12px}
+.item-title{flex:1}
+.item-img{width:24px;height:24px;object-fit:contain;border-radius:4px}
+.muted{color:var(--muted)}
+.tree{padding:16px;max-height:75vh;overflow:auto}
+.node>.label{display:inline-flex;align-items:center;gap:8px;background:#0e1526;border:1px solid rgba(255,255,255,.08);padding:6px 10px;border-radius:10px}
+.qty{font-variant-numeric:tabular-nums;color:#b6f1d3}
+.chance{color:var(--warn)}
+details{margin-left:18px}
+.footer{padding:10px 16px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;background:#0e1526;border:1px solid rgba(255,255,255,.08);padding:6px 10px;border-radius:999px;font-size:12px}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.toolbar{display:flex;gap:8px;align-items:center}
+.overlay-panel{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:60}
+.overlay-panel.open{display:flex}
+.overlay-content{background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px;max-width:520px;width:90%;max-height:80vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.overlay-content h3{margin-top:0;margin-bottom:12px;font-size:16px;text-align:center}
+.overlay-content .variant-btn{display:flex;flex-direction:column;gap:6px}
+hr.sep{border:none;border-top:1px dashed rgba(255,255,255,.12);margin:6px 0}
+.empty{border:1px dashed rgba(255,255,255,.15);border-radius:12px;padding:10px;text-align:center;color:var(--muted)}
+@media (max-width: 960px){
+  main{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <h1 aria-label="Titlu aplicație">Arbore de Crafting</h1>
+    <span class="badge" aria-label="Mod activ">Mod Resource / Create • Map • NPC</span>
+    <div style="flex:1"></div>
+    <button id="openList" class="btn small" type="button" title="Deschide lista">Listă <span id="listCount" class="countBadge" aria-live="polite" tabindex="0" title="Deschide lista">0</span></button>
+    <button id="copyLink" class="btn" type="button" title="Copiază link cu starea curentă">Copiază link</button>
+    <button id="resetState" class="btn" type="button">Reset</button>
+  </div>
+  <label class="sr-only" for="searchGlobal">Căutare globală</label>
+  <input id="searchGlobal" placeholder="Tastează un nume de item și apasă Enter… (ex: Ultimate Tablet)" />
+</header>
+
+<main>
+<section class="card section" aria-label="Filtre și listă NPC">
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <div class="col">
+    <label class="title" for="mapSelect">Map</label>
+    <select id="mapSelect" aria-label="Alege harta"></select>
+    <label class="title" for="npcSelect">NPC</label>
+    <select id="npcSelect" aria-label="Alege NPC"></select>
+    <div class="row">
+      <input id="searchInput" placeholder="Caută item la NPC..." style="flex:1" aria-label="Caută item la NPC" />
+      <input id="qtyInput" type="number" value="1" min="1" step="1" style="width:100px" aria-label="Cantitate" />
+    </div>
+    <div class="title" style="margin-top:6px">Iteme oferite de NPC</div>
+    <div id="npcItems" class="list" tabindex="-1"></div>
+  </div>
+</section>
+
+<section class="card" aria-label="Arbore rețetă">
+  <div class="toolbar" style="padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.06)">
+    <h2 style="margin:0;font-size:14px;font-weight:600">Rețetă</h2>
+    <span class="pill" id="currentItemName">—</span>
+    <div style="flex:1"></div>
+    <button id="expandAll" type="button">Extinde tot</button>
+    <button id="collapseAll" type="button">Restrânge tot</button>
+    <button id="addToList" type="button" title="Adaugă itemul curent în listă">Adaugă la listă</button>
+    <button id="exportJson" type="button" title="Copiază structura arborelui în format JSON">Export JSON</button>
+  </div>
+  <div class="tree" id="tree"><div class="empty">Alege un item din stânga sau caută mai sus</div></div>
+  <div class="footer">
+    <div class="muted">Nodurile fără rețetă sunt materiale de bază.</div>
+    <div id="meta" class="pills" aria-live="polite"></div>
+  </div>
+</section>
+</main>
+
+<!-- Overlay pentru alegerea rețetei -->
+<div id="variantOverlay" class="overlay-panel" aria-modal="true" role="dialog" aria-labelledby="variantTitle">
+  <div class="overlay-content">
+    <h3 id="variantTitle">Alege rețeta</h3>
+    <div id="variantList" class="variant-btn"></div>
+    <div style="text-align:center;margin-top:12px">
+      <button id="closeVariantOverlay" class="btn" type="button">Închide</button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay pentru LISTĂ -->
+<div id="listOverlay" class="overlay-panel" aria-modal="true" role="dialog" aria-labelledby="listTitle">
+  <div class="overlay-content">
+    <h3 id="listTitle">Lista mea</h3>
+    <div id="listBody" class="list" style="max-height:50vh"></div>
+    <div style="display:flex; gap:8px; justify-content:center; margin-top:12px">
+      <button id="exportList" class="btn" type="button" title="Copiază lista ca JSON">Exportă JSON</button>
+      <button id="clearList" class="btn" type="button" title="Golește lista">Golește</button>
+      <button id="closeListOverlay" class="btn" type="button">Închide</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== Utilitare ===== */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const fmtQty=n=>new Intl.NumberFormat('ro-RO').format(n);
+const copy = async (t)=>{ try{ await navigator.clipboard.writeText(t); toast('Copiat în clipboard!'); }catch(e){ toast('Nu s-a putut copia.'); } };
+const debounce=(fn,ms=200)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};};
+
+/* Mini toast */
+const toast=(msg)=>{
+  let el=$('#toast');
+  if(!el){ el=document.createElement('div'); el.id='toast'; el.style.cssText='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0e1526;border:1px solid rgba(255,255,255,.12);padding:10px 14px;border-radius:10px;z-index:100;opacity:0;transition:.2s;'; document.body.appendChild(el); }
+  el.textContent=msg; el.style.opacity='1';
+  setTimeout(()=>{ el.style.opacity='0'; }, 1600);
+};
+
+/* ===== Date de exemplu ===== */
+const DATA={
+  "Infinite Vaisravana Costume (F)":{
+    variants:[
+      {source:{tab:'Resource',map:'Loulan',npc:'Infinite Helper Lei Woodo'},success:100,ingredients:{"Infinite Dark Soul Costume (F)":1,"Celestial Yellow Dragon of Darkness Clothes (F)":1, "United Spirits Bead":2, "Ultimate Tablet":3, "Wave Healing Stone":10, "Infinite Spirit (High)":100}},
+    ]
+  },
+  "Infinite Dark Soul Costume (F)":{
+    variants:[
+      {source:{tab:'Create',map:'Loulan',npc:'Infinite Master Man Sangja'},success:5,ingredients:{"Eternal Flame Yellow Dragon Clothes (F)":1,"Wave Healing Stone":3, "Infinite Stone Shard":100, "Infinite Spirit (Mid)":25, "PVE Basic Points":300, "PVE Gold Points":200}},
+    ]
+  },
+  "Celestial Yellow Dragon of Darkness Clothes (F)":{
+    variants:[
+      {source:{tab:'Create',map:'Loulan',npc:'Infinite Master Man Sangja'},success:5,ingredients:{"Eternal Flame Yellow Dragon Clothes (F)":1,"Wave Healing Stone":3, "Infinite Stone Shard":100, "Infinite Spirit (Mid)":25, "PVE Basic Points":300, "PVE Gold Points":200}},
+    ]
+  },
+};
+
+/* ===== Indexare (Tab → Map → NPC → Items) ===== */
+function buildIndex(){
+  const idx = [];
+  for (const [item,rec] of Object.entries(DATA)){
+    (rec.variants||[]).forEach(v=>{
+      idx.push({item, ...v.source, success:v.success ?? null});
+    });
+  }
+  return idx;
+}
+const INDEX = buildIndex();
+const TABS = Array.from(new Set(INDEX.map(r=>r.tab))).sort();
+
+/* ===== Stare ===== */
+let state={
+  currentTab: TABS[0] || 'Resource',
+  map: '', npc: '', query:'', qty:1,
+  currentItem:'', list:[], selectedVariant:{}
+};
+// din URL sau localStorage
+try{
+  if(location.hash.startsWith('#state=')){
+    const raw = decodeURIComponent(location.hash.slice(7));
+    const parsed = JSON.parse(atob(raw));
+    Object.assign(state, parsed);
+  } else {
+    Object.assign(state, JSON.parse(localStorage.getItem('craft_state_v3')||'{}'));
+  }
+}catch{}
+const saveState=(patch={})=>{
+  state = {...state, ...patch};
+  localStorage.setItem('craft_state_v3', JSON.stringify(state));
+};
+
+/* ===== Helpers pentru opțiuni ===== */
+function mapsForTab(tab){
+  return Array.from(new Set(INDEX.filter(r=>r.tab===tab).map(r=>r.map))).sort();
+}
+function npcsFor(tab,map){
+  return Array.from(new Set(INDEX.filter(r=>r.tab===tab && r.map===map).map(r=>r.npc))).sort();
+}
+function itemsFor(tab,map,npc){
+  return Array.from(new Set(INDEX.filter(r=>r.tab===tab && r.map===map && r.npc===npc).map(r=>r.item))).sort();
+}
+
+/* ===== Arbore rețete ===== */
+function buildTree(name,qty=1,visited=new Set()){
+  if(visited.has(name)) return {label:name,qty,loop:true,children:[]};
+  visited.add(name);
+  const rec=DATA[name];
+  if(!rec || !rec.variants || rec.variants.length===0) return {label:name,qty,base:true,children:[]};
+  const idx = state.selectedVariant[name] ?? 0;
+  const v = rec.variants[idx] || rec.variants[0];
+  const node = {label:name,qty,success:v.success,source:v.source,children:[],variantIndex:idx,variantCount:rec.variants.length};
+  for(const [ing,q] of Object.entries(v.ingredients||{})){
+    node.children.push(buildTree(ing,q*qty,new Set(visited)));
+  }
+  return node;
+}
+function countNodes(n){ let c=1; for(const ch of n.children||[]) c+=countNodes(ch); return c; }
+function aggregateBaseMaterials(node,totals=new Map()){
+  const rec=DATA[node.label];
+  if(!rec || !rec.variants || rec.variants.length===0) totals.set(node.label,(totals.get(node.label)||0)+node.qty);
+  (node.children||[]).forEach(ch=>aggregateBaseMaterials(ch,totals));
+  return totals;
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"]+/g, ch=>({"&":"&amp;","<":"&lt;",
+                                     ">":"&gt;","\"":"&quot;"}[ch]));
+}
+
+function renderTree(node,parent){
+  const details=document.createElement('details'); details.open=true;
+  const summary=document.createElement('summary'); summary.className='node';
+  const label=document.createElement('span'); label.className='label';
+
+  const varBtn = node.variantCount>1 ? `<button class="variantBtn" data-item="${escapeHtml(node.label)}" title="Schimbă rețeta" style="margin-left:4px" type="button">🔄</button>` : '';
+  label.innerHTML = `<strong>${escapeHtml(node.label)}</strong> × ${fmtQty(node.qty)} ${(node.success!=null?`<span class="chance">(${node.success}% succes)</span>`:'')}${varBtn}`;
+  summary.appendChild(label);
+  details.appendChild(summary);
+
+  if(node.children && node.children.length){
+    node.children.forEach(ch=>renderTree(ch,details));
+  }
+  parent.appendChild(details);
+
+  if(node.variantCount>1){
+    const info = document.createElement('div');
+    info.className='muted';
+    info.style.cssText='margin-left:32px;font-size:12px';
+    info.textContent = `Variantă selectată: ${node.source.tab} • ${node.source.map} • ${node.source.npc}`;
+    details.appendChild(info);
+  }
+}
+function renderMeta(root){
+  const meta=$('#meta'); meta.innerHTML='';
+  const total=countNodes(root);
+  const pill=document.createElement('span'); pill.className='pill'; pill.textContent=`Noduri: ${total}`; meta.appendChild(pill);
+  const base=aggregateBaseMaterials(root);
+  base.forEach((v,k)=>{ const p=document.createElement('span'); p.className='pill'; p.textContent=`${k}: ×${fmtQty(v)}`; meta.appendChild(p); });
+}
+function showRecipe(name){
+  const qty = parseInt($('#qtyInput').value)||1;
+  const root=buildTree(name,qty);
+  const tree = $('#tree'); tree.innerHTML='';
+  renderTree(root, tree);
+  renderMeta(root);
+  $('#currentItemName').textContent=`${name} × ${fmtQty(qty)}`;
+  saveState({currentItem:name, qty});
+}
+
+/* ===== Overlay variante ===== */
+const overlay=$('#variantOverlay');
+const listDiv=$('#variantList');
+$('#closeVariantOverlay').onclick=()=>closeOverlay();
+function openVariantPanel(item){
+  const rec=DATA[item];
+  if(!rec || !(rec.variants?.length>1)) return;
+  listDiv.innerHTML='';
+  $('#variantTitle').textContent=`Alege rețeta pentru "${item}"`;
+  rec.variants.forEach((v,i)=>{
+    const b=document.createElement('button');
+    b.className='primary';
+    b.type='button';
+    b.textContent=`${v.source.tab} • ${v.source.map} • ${v.source.npc} (${v.success ?? '?'}% succes)`;
+    b.onclick=()=>{
+      state.selectedVariant[item]=i;
+      saveState({});
+      closeOverlay();
+      if(state.currentItem) showRecipe(state.currentItem);
+    };
+    listDiv.appendChild(b);
+  });
+  overlay.classList.add('open');
+  // focus trap basic
+  setTimeout(()=>$('#closeVariantOverlay').focus(),0);
+}
+function closeOverlay(){ overlay.classList.remove('open'); }
+
+/* Închidere overlay la ESC / click în afara conținutului */
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='Escape' && overlay.classList.contains('open')) closeOverlay();
+});
+overlay.addEventListener('click', (e)=>{
+  if(e.target===overlay) closeOverlay();
+});
+
+/* ===== UI stânga: Tabs / Map / NPC / Lista Items ===== */
+function renderTabs(){
+  const c = $('#tabs'); c.innerHTML='';
+  TABS.forEach(tab=>{
+    const b=document.createElement('button');
+    b.className='tab' + (state.currentTab===tab?' active':'');
+    b.setAttribute('role','tab');
+    b.setAttribute('aria-selected', state.currentTab===tab ? 'true':'false');
+    b.type='button';
+    b.textContent=tab;
+    b.onclick=()=>{
+      state.currentTab=tab;
+      // schimb tab → reset map/npc
+      const maps = mapsForTab(tab);
+      state.map = maps[0] || '';
+      const npcs = npcsFor(tab, state.map);
+      state.npc = npcs[0] || '';
+      saveState({});
+      renderTabs(); renderMap(); renderNpc(); renderNpcItems();
+    };
+    c.appendChild(b);
+  });
+}
+function renderMap(){
+  const sel = $('#mapSelect'); sel.innerHTML='';
+  const maps = mapsForTab(state.currentTab);
+  maps.forEach(m=>{
+    const o=document.createElement('option'); o.value=m; o.textContent=m;
+    if(m===state.map) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+function renderNpc(){
+  const sel = $('#npcSelect'); sel.innerHTML='';
+  const npcs = npcsFor(state.currentTab, state.map);
+  npcs.forEach(n=>{
+    const o=document.createElement('option'); o.value=n; o.textContent=n;
+    if(n===state.npc) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+function renderNpcItems(){
+  const box = $('#npcItems'); box.innerHTML='';
+  const search = ($('#searchInput').value||'').trim().toLowerCase();
+  const items = itemsFor(state.currentTab, state.map, state.npc)
+    .filter(it => it.toLowerCase().includes(search));
+
+  updateListCount();
+
+  if(items.length===0){
+    box.innerHTML = `<div class="empty">Niciun item pentru selecția curentă.</div>`;
+    return;
+  }
+  items.forEach(it=>{
+    const row = document.createElement('div');
+    row.className='item';
+
+    const img=document.createElement('img');
+    img.className='item-img';
+    img.alt='Pictogramă item';
+    img.src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><rect width='24' height='24' rx='4' fill='%231a2435'/><text x='12' y='17' text-anchor='middle' font-size='12' fill='%239fb0c0'>🎒</text></svg>";
+
+    const titleWrap=document.createElement('div');
+    titleWrap.className='item-title';
+    const strong=document.createElement('strong');
+    strong.textContent=it;
+    const meta=document.createElement('div');
+    meta.className='muted';
+    meta.textContent=`${state.currentTab} • ${state.map} • ${state.npc}`;
+    titleWrap.appendChild(strong);
+    titleWrap.appendChild(meta);
+
+    const seeBtn=document.createElement('button');
+    seeBtn.className='primary seeRecipe';
+    seeBtn.type='button';
+    seeBtn.dataset.item=it;
+    seeBtn.textContent='Vezi rețeta';
+
+    const addBtn=document.createElement('button');
+    addBtn.className='addToList';
+    addBtn.type='button';
+    addBtn.dataset.item=it;
+    addBtn.textContent='Adaugă';
+
+    row.appendChild(img); row.appendChild(titleWrap); row.appendChild(seeBtn); row.appendChild(addBtn);
+    box.appendChild(row);
+  });
+}
+
+/* ===== Evenimente ===== */
+$('#mapSelect').addEventListener('change', (e)=>{
+  state.map = e.target.value;
+  const npcs = npcsFor(state.currentTab, state.map);
+  state.npc = npcs[0] || '';
+  saveState({});
+  renderNpc(); renderNpcItems();
+});
+$('#npcSelect').addEventListener('change', (e)=>{
+  state.npc = e.target.value; saveState({}); renderNpcItems();
+});
+$('#searchInput').addEventListener('input', debounce(renderNpcItems, 120));
+$('#npcItems').addEventListener('click', (e)=>{
+  const see = e.target.closest('.seeRecipe');
+  if(see){ showRecipe(see.dataset.item); return; }
+  const add = e.target.closest('.addToList');
+  if(add){ addToList(add.dataset.item, parseInt($('#qtyInput').value)||1); }
+});
+
+$('#tree').addEventListener('click', e=>{
+  const btn=e.target.closest('.variantBtn');
+  if(btn){ openVariantPanel(btn.dataset.item); }
+});
+
+$('#expandAll').onclick=()=>{ $$('#tree details').forEach(d=>d.open=true); };
+$('#collapseAll').onclick=()=>{ $$('#tree details').forEach(d=>d.open=false); };
+$('#addToList').onclick=()=>{
+  if(!state.currentItem){ toast('Selectează întâi un item.'); return; }
+  const qty = parseInt($('#qtyInput').value)||1;
+  addToList(state.currentItem, qty);
+};
+
+$('#exportJson').onclick=()=>{
+  if(!state.currentItem){ toast('Selectează întâi un item.'); return; }
+  const qty = parseInt($('#qtyInput').value)||1;
+  const data = buildTree(state.currentItem, qty);
+  copy(JSON.stringify(data, null, 2));
+};
+
+$('#copyLink').onclick=()=>{
+  const payload = btoa(JSON.stringify(state));
+  const url = new URL(window.location.href);
+  url.hash = '#state=' + encodeURIComponent(payload);
+  copy(url.toString());
+};
+
+$('#resetState').onclick=()=>{
+  localStorage.removeItem('craft_state_v3');
+  location.hash='';
+  location.reload();
+};
+
+$('#searchGlobal').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter'){
+    const q = e.target.value.trim().toLowerCase();
+    if(!q) return;
+    const names = Object.keys(DATA).filter(n=>n.toLowerCase().includes(q));
+    if(names.length){
+      $('#qtyInput').value = 1;
+      showRecipe(names[0]);
+      $('#tree').focus?.();
+    } else {
+      toast('Itemul nu a fost găsit în DATA.');
+    }
+  }
+});
+
+/* Scurtătură: "Listă" – deschide panoul */
+$('#openList').addEventListener('click', ()=>{ openListPanel(); });
+$('#listCount').addEventListener('click', ()=>{ openListPanel(); });
+$('#listCount').addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openListPanel(); }});
+
+/* ===== Funcții LISTĂ ===== */
+function updateListCount(){ $('#listCount').textContent = String(state.list?.reduce((s,i)=>s+i.qty,0) || 0); }
+function addToList(name, qty=1){
+  if(!name || qty<=0) return;
+  if(!Array.isArray(state.list)) state.list=[];
+  const found = state.list.find(x=>x.name===name);
+  if(found) found.qty += qty; else state.list.push({name, qty});
+  saveState({}); updateListCount(); toast('Adăugat în listă');
+}
+function removeFromList(name){
+  state.list = (state.list||[]).filter(x=>x.name!==name);
+  saveState({}); renderListPanel(); updateListCount();
+}
+function clearList(){ state.list=[]; saveState({}); renderListPanel(); updateListCount(); }
+function changeQty(name, delta){
+  const it = (state.list||[]).find(x=>x.name===name);
+  if(!it) return;
+  it.qty = Math.max(1, (it.qty||1) + delta);
+  saveState({}); renderListPanel(); updateListCount();
+}
+function selectFromList(name){
+  const it = (state.list||[]).find(x=>x.name===name);
+  const q = it ? it.qty : 1;
+  closeListPanel();
+  $('#qtyInput').value = q;
+  showRecipe(name);
+  toast('Selectat din listă');
+}
+function renderListPanel(){
+  const body = $('#listBody');
+  const items = state.list||[];
+  body.innerHTML='';
+  if(!items.length){ body.innerHTML = '<div class="empty">Lista este goală.</div>'; return; }
+  items.forEach(it=>{
+    const row=document.createElement('div'); row.className='item';
+
+    const title=document.createElement('div'); title.className='item-title';
+    title.innerHTML = `<strong>${it.name}</strong><div class="muted">Cantitate: ×${fmtQty(it.qty)}</div>`;
+
+    const controls=document.createElement('div'); controls.style.display='flex'; controls.style.gap='6px';
+    const minus=document.createElement('button'); minus.type='button'; minus.textContent='–'; minus.title='Scade 1'; minus.onclick=()=>changeQty(it.name,-1);
+    const plus=document.createElement('button'); plus.type='button'; plus.textContent='+'; plus.title='Adaugă 1'; plus.onclick=()=>changeQty(it.name,1);
+    const choose=document.createElement('button'); choose.type='button'; choose.className='primary'; choose.textContent='Alege'; choose.title='Arată rețeta pentru acest item'; choose.onclick=()=>selectFromList(it.name);
+    const rm=document.createElement('button'); rm.type='button'; rm.textContent='Șterge'; rm.title='Șterge din listă'; rm.onclick=()=>removeFromList(it.name);
+
+    controls.appendChild(minus); controls.appendChild(plus); controls.appendChild(choose); controls.appendChild(rm);
+
+    row.appendChild(title); row.appendChild(controls);
+    body.appendChild(row);
+  });
+}
+function openListPanel(){ renderListPanel(); $('#listOverlay').classList.add('open'); setTimeout(()=>$('#closeListOverlay').focus(),0); }
+function closeListPanel(){ $('#listOverlay').classList.remove('open'); }
+$('#closeListOverlay').onclick=()=>closeListPanel();
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && $('#listOverlay').classList.contains('open')) closeListPanel(); });
+$('#listOverlay').addEventListener('click', (e)=>{ if(e.target===$('#listOverlay')) closeListPanel(); });
+$('#exportList').onclick=()=> copy(JSON.stringify(state.list||[], null, 2));
+$('#clearList').onclick=()=> clearList();
+
+/* ===== Inițializare ===== */
+function firstOr(v, fallback=''){ return v && v.length ? v[0] : fallback; }
+window.addEventListener('load', ()=>{
+  if(!TABS.includes(state.currentTab)) state.currentTab = TABS[0] || 'Resource';
+  const maps = mapsForTab(state.currentTab);
+  if(!maps.includes(state.map)) state.map = firstOr(maps);
+  const npcs = npcsFor(state.currentTab, state.map);
+  if(!npcs.includes(state.npc)) state.npc = firstOr(npcs);
+  saveState({});
+
+  renderTabs(); renderMap(); renderNpc(); renderNpcItems(); updateListCount();
+
+  if(state.currentItem) showRecipe(state.currentItem);
+});
+
+/* Mic quality-of-life: schimbarea cantității regenerează instant arborele curent */
+$('#qtyInput').addEventListener('input', debounce(()=>{
+  if(state.currentItem) showRecipe(state.currentItem);
+}, 150));
+
+/* ===== Teste de bază (în consolă) ===== */
+(function tests(){
+  try{
+    console.assert(Array.isArray(buildIndex()), 'buildIndex returnează un array');
+    const t=buildTree('Infinite Dark Soul Costume (F)',1);
+    console.assert(t && t.label==='Infinite Dark Soul Costume (F)', 'buildTree: root label corect');
+    const sums=aggregateBaseMaterials(t);
+    console.assert(sums instanceof Map, 'aggregateBaseMaterials returnează Map');
+    console.assert(countNodes(t)>=1, 'countNodes >= 1');
+
+    // Teste suplimentare pentru listă
+    addToList('X',2); console.assert((state.list||[]).find(i=>i.name==='X')?.qty===2,'addToList adaugă');
+    addToList('X',3); console.assert((state.list||[]).find(i=>i.name==='X')?.qty===5,'addToList cumulează');
+    changeQty('X',-10); console.assert((state.list||[]).find(i=>i.name==='X')?.qty===1,'changeQty nu scade sub 1');
+    changeQty('X',+4); console.assert((state.list||[]).find(i=>i.name==='X')?.qty===5,'changeQty crește');
+    removeFromList('X'); console.assert(!(state.list||[]).find(i=>i.name==='X'),'removeFromList elimină');
+  }catch(err){ console.warn('Teste eșuate:', err); }
+})();
+</script>
+</body>
+</html>
